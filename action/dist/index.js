@@ -209,6 +209,7 @@ const main = async ({ env = process.env, log, }) => {
     // Set Git Config
     await (0, exports.exec)(`git config --global user.name "${name}"`, { log });
     await (0, exports.exec)(`git config --global user.email "${email}"`, { log });
+    await (0, exports.exec)(`git config --global http.postBuffer 524288000`, { log });
     /**
      * Get information about the current git repository
      */
