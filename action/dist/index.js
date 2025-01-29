@@ -463,7 +463,8 @@ const main = async ({ env = process.env, log, }) => {
         }
     }
     log.log(`##[info] Config`);
-    await (0, exports.exec)(`git config --global http.postBuffer 524288000`, { log });
+    const config_post_buffer = await (0, exports.exec)(`git config --global http.postBuffer 524288000`, { log, env: childEnv, cwd: REPO_TEMP });
+    log.log(config_post_buffer.stdout);
     log.log(`##[info] Pushing`);
     const forceArg = config.squashHistory ? '-f' : '';
     const tagsArg = tag ? '--tags' : '';
