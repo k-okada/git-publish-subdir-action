@@ -416,7 +416,7 @@ const main = async ({ env = process.env, log, }) => {
         copySourceDirectory: false,
     });
     log.log(`##[info] Use Git LFS`);
-    const lfs_track = await (0, exports.exec)(`git lfs track ./**`, { log, env: childEnv, cwd: REPO_TEMP });
+    const lfs_track = await (0, exports.exec)(`git lfs track ./repository/*.deb`, { log, env: childEnv, cwd: REPO_TEMP });
     log.log(lfs_track.stdout);
     await (0, exports.exec)(`git add -A .`, { log, env: childEnv, cwd: REPO_TEMP });
     const message = config.message
