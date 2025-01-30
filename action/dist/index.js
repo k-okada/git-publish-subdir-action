@@ -416,8 +416,15 @@ const main = async ({ env = process.env, log, }) => {
         copySourceDirectory: false,
     });
     log.log(`##[info] Use Git LFS`);
-    const lfs_track = await (0, exports.exec)(`git lfs track ./repository/*.deb`, { log, env: childEnv, cwd: REPO_TEMP });
-    log.log(lfs_track.stdout);
+    //const lfs_track = await (0, exports.exec)(`git lfs track ./repository/*.deb`, { log, env: childEnv, cwd: REPO_TEMP });
+    //log.log(lfs_track.stdout);
+    const tmp_out_1 = await (0, exports.exec)(`git config --global http.postBuffer 157286400`, { log, env: childEnv, cwd: REPO_TEMP });
+    log.log(tmp_out_1.stdout);
+    const tmp_out_2 = await (0, exports.exec)(`git config --global http.version HTTP/1.1`, { log, env: childEnv, cwd: REPO_TEMP });
+    log.log(tmp_out_2.stdout);
+    const tmp_out_3 = await (0, exports.exec)(`git config --list`, { log, env: childEnv, cwd: REPO_TEMP });
+    log.log(tmp_out_3.stdout);
+
     await (0, exports.exec)(`git add -A .`, { log, env: childEnv, cwd: REPO_TEMP });
     const message = config.message
         .replace(/\{target\-branch\}/g, config.branch)
