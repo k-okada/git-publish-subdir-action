@@ -458,15 +458,17 @@ const main = async ({ env = process.env, log, }) => {
     // add, commit and push every 500M
     while ( FilesSplitted.length ) {
         let files = FilesSplitted.pop();
+        let files_length = files.length
         while ( files.length ) {
             let file = files.pop();
             await (0, exports.exec)(`git add -A ${file}`, { log, env: childEnv, cwd: REPO_TEMP });
         }
-        const message = config.message
+        const message = 'Update {target-branch} to output generated at {sha}, with {length} files.'
               .replace(/\{target\-branch\}/g, config.branch)
               .replace(/\{sha\}/g, gitInfo.sha.substr(0, 7))
               .replace(/\{long\-sha\}/g, gitInfo.sha)
-              .replace(/\{msg\}/g, gitInfo.commitMessage);
+              .replace(/\{msg\}/g, gitInfo.commitMessage)
+              .replace(/\{length\}/g, files_length);
         await isomorphic_git_1.default.commit({
             fs: fs_1.default,
             dir: REPO_TEMP,
