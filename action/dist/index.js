@@ -209,7 +209,6 @@ const main = async ({ env = process.env, log, }) => {
     // Set Git Config
     await (0, exports.exec)(`git config --global user.name "${name}"`, { log });
     await (0, exports.exec)(`git config --global user.email "${email}"`, { log });
-    await (0, exports.exec)(`git config --global http.postBuffer 524288000`, { log });
     /**
      * Get information about the current git repository
      */
@@ -415,30 +414,71 @@ const main = async ({ env = process.env, log, }) => {
         recursive: true,
         copySourceDirectory: false,
     });
-    log.log(`##[info] Use Git LFS`);
-    //const lfs_track = await (0, exports.exec)(`git lfs track ./repository/*.deb`, { log, env: childEnv, cwd: REPO_TEMP });
-    //log.log(lfs_track.stdout);
-    const tmp_out_1 = await (0, exports.exec)(`git config --global http.postBuffer 524288000`, { log, env: childEnv, cwd: REPO_TEMP });
-    log.log(tmp_out_1.stdout);
-    const tmp_out_2 = await (0, exports.exec)(`git config --global http.version HTTP/1.1`, { log, env: childEnv, cwd: REPO_TEMP });
-    log.log(tmp_out_2.stdout);
-    const tmp_out_3 = await (0, exports.exec)(`git config --global core.compression 9`, { log, env: childEnv, cwd: REPO_TEMP });
-    log.log(tmp_out_3.stdout);
-    const tmp_out_99 = await (0, exports.exec)(`git config --list`, { log, env: childEnv, cwd: REPO_TEMP });
-    log.log(tmp_out_99.stdout);
 
-    await (0, exports.exec)(`git add -A .`, { log, env: childEnv, cwd: REPO_TEMP });
-    const message = config.message
-        .replace(/\{target\-branch\}/g, config.branch)
-        .replace(/\{sha\}/g, gitInfo.sha.substr(0, 7))
-        .replace(/\{long\-sha\}/g, gitInfo.sha)
-        .replace(/\{msg\}/g, gitInfo.commitMessage);
-    await isomorphic_git_1.default.commit({
-        fs: fs_1.default,
-        dir: REPO_TEMP,
-        message,
-        author: { email, name },
+    // Get all files
+    const Path = require("path");
+    const FS   = require("fs");
+    let Files = [];
+    function ThroughDirectory(Directory) {
+        FS.readdirSync(Directory).forEach(File => {
+            const Absolute = Path.join(Directory, File);
+            const Stat = FS.statSync(Absolute);
+            if (Directory === '.git') return Files;
+            else if (Stat.isDirectory()) return ThroughDirectory(Absolute);
+            else return Files.push({filename: Absolute, size: Stat.size});
+        });
+    }
+    ThroughDirectory(REPO_TEMP);
+    // Sort by size
+    Files.sort(function(first, second) {
+        if ( first.size > second.size ){
+            return -1;
+        }else{
+            return 1;
+        }
     });
+    // split every 500M
+    let FilesSplitted = []
+    let filesSize = 0
+    let filesTmp = []
+    while ( Files.length ) {
+        let file = Files.pop()
+        if ( filesSize + file.size < 500000000 ) {
+            filesSize += file.size
+            filesTmp.push(file.filename)
+        } else {
+            log.log("##[into] %d fiels are selected, total file size is %d M", filesTmp.length, (filesSize + file.size)/1000000)
+            FilesSplitted.push(filesTmp)
+            filesTmp = [file.filename]
+            filesSize = file.size
+        }
+    }
+    FilesSplitted.push(filesTmp)
+    log.log("##[into] %d fiels are selected, total file size is %d M", filesTmp.length, filesSize/1000000)
+    // add, commit and push every 500M
+    while ( FilesSplitted.length ) {
+        let files = FilesSplitted.pop();
+        while ( files.length ) {
+            let file = files.pop();
+            await (0, exports.exec)(`git add -A ${file}`, { log, env: childEnv, cwd: REPO_TEMP });
+        }
+        const message = config.message
+              .replace(/\{target\-branch\}/g, config.branch)
+              .replace(/\{sha\}/g, gitInfo.sha.substr(0, 7))
+              .replace(/\{long\-sha\}/g, gitInfo.sha)
+              .replace(/\{msg\}/g, gitInfo.commitMessage);
+        await isomorphic_git_1.default.commit({
+            fs: fs_1.default,
+            dir: REPO_TEMP,
+            message,
+            author: { email, name },
+        });
+        if ( FilesSplitted.length > 0)  {
+            const forceArg = config.squashHistory ? '-f' : '';
+            const push = await (0, exports.exec)(`git push ${forceArg} origin "${config.branch}"`, { log, env: childEnv, cwd: REPO_TEMP });
+            log.log(push.stdout);
+        }
+    }
     if (tag) {
         log.log(`##[info] Tagging commit with ${tag}`);
         await isomorphic_git_1.default.tag({
@@ -474,9 +514,6 @@ const main = async ({ env = process.env, log, }) => {
             }
         }
     }
-    log.log(`##[info] Config`);
-    const config_post_buffer = await (0, exports.exec)(`git config --global http.postBuffer 524288000`, { log, env: childEnv, cwd: REPO_TEMP });
-    log.log(config_post_buffer.stdout);
     log.log(`##[info] Pushing`);
     const forceArg = config.squashHistory ? '-f' : '';
     const tagsArg = tag ? '--tags' : '';
